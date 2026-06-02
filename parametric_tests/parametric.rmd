@@ -1,0 +1,490 @@
+---
+title: "Statistika: 2 laboratorinis darbas"
+author: "Junior Statistikai"
+output: pdf_document
+---
+
+## Naudotos bibliotekos:
+
+```{r, warning=FALSE, message=FALSE}
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(e1071)
+library(ggplot2)
+```
+
+## Duomenų nuskaitymas:
+
+```{r}
+duomenys <- read_excel("Duomenys.xlsx", sheet = "duomenys", range = "A1:U5001")
+
+duomenys <- duomenys %>%
+  mutate(across(c(1, 2, 5:15, 17:21), ~as.numeric(.))) %>%
+  mutate(exam_score = na_if(exam_score, 1.0)) %>%
+  mutate(productivity_score = na_if(productivity_score, 1.0))
+```
+
+## 1. Aprašykite turimus duomenis, nurodykite duomenų šaltinį.
+
+Pasirinktas duomenų rinkinys apie įvairius mokinių, studentų mokymosi elgsenos ir produktyvumo aspektus. Duomenų šaltinį sudaro 5000 įrašų (5000 studentų/mokinių). Duomenų rinkinyje pateikiama informacija apie mokymosi valandas, miego įpročius, socialinių tinklų naudojimą, streso lygį ir akademinius rezultatus.
+
+[Kiekybiniai kintamieji:]{.underline}
+
+1.     Studento amžius (age);
+
+2.     Studijų valandos (study_hours);
+
+3.     Savarankiškų studijų valandos (self_study_hours);
+
+4.     Nuotolinių studijų valandos (online_study_hours);
+
+5.     Naudojimosi socialiniais tinklais laikas valandomis (social_media_hours);
+
+6.     Laikas praleistas žaidžiant kompiuteriu (gaming_hours);
+
+7.     Miego valandos (sleep_hours);
+
+8.     Ekrano laiko valandos (screen_time_hours);
+
+9.     Sportavimas minutėmis (exercise_minutes);
+
+10.  Kofeino suvartojimas miligramais (caffeine_intake_mg);
+
+11.  Psichikos sveikatos balas (mental_health_score);
+
+12.  Koncentracijos indeksas (focus_index);
+
+13.  Perdegimo lygis (burnout_level);
+
+14.  Produktyvumo lygis (productivity_score);
+
+15.  Egzamino rezultatas (exam_score).
+
+[Ranginiai kintamieji:]{.underline}
+
+1.     Lytis (gender) – „Male“, „Female“, „Other“;
+
+2.     Studijų lygis (academic_level) – „Undergraduate“, „High school“, „Postgraduate“;
+
+3.     Darbas ne visą darbo dieną (part_time_job) – 1 (turi darbą), 0 (neturi darbo);
+
+4.     Artėjantis atsiskaitymas (upcoming_deadline) – 1 (artėja atsiskaitymo data), 0 (nėra atsiskaitymo datos);
+
+5.     Interneto kokybė (internet_quality) – „Poor“, „Average“, „Good“.
+
+## 2. Išbrėžkite turimų duomenų grafikus (parinkite tinkamiausius).
+
+Egzamino rezultatų (exam_score) pasiskirstymas - histograma:
+
+```{r, warning=FALSE, message=FALSE}
+# Histograma 1 - egzamino rezultatai (exam_score)
+# Histograma 2 - produktyvumo lygis (productivity_score)
+# Histograma 3 - perdegimo lygis (burnout_level)
+# Histograma 4 - koncentracijos indeksas (focus_index)
+duomenys %>%
+  dplyr::select(exam_score, productivity_score, burnout_level, focus_index) %>%
+  pivot_longer(cols = everything(),
+               names_to = "kintamasis",
+               values_to = "reiksme") %>%
+  ggplot(aes(x = reiksme)) +
+  geom_histogram(binwidth = 3, fill = "steelblue", color = "white") +
+  facet_wrap(~kintamasis, scales = "free",
+             labeller = labeller(kintamasis = c(
+               exam_score = "Egzamino rezultatas",
+               productivity_score = "Produktyvumo lygis",
+               burnout_level = "Perdegimo lygis",
+               focus_index = "Koncentracijos indeksas"
+             ))) +
+  labs(x = "Reikšmė", y = "Dažnis") +
+  theme_minimal()
+```
+
+```{r, warning=FALSE, message=FALSE}
+# Sklaidos diagrama 1 - ryšys tarp mokimosi valandų ir egzamino rezultato
+ggplot(duomenys, aes(x = study_hours, y = exam_score)) +
+  geom_point(color = "steelblue", alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Ryšys tarp mokymosi valandų ir egzamino rezultato",
+    x = "Mokymosi valandos",
+    y = "Egzamino rezultatas"
+  ) +
+  theme_minimal()
+
+# Sklaidos diagrama 2 - ryšys tarp produktyvumo lygio ir egzamino rezultato
+ggplot(duomenys, aes(x = productivity_score, y = exam_score)) +
+  geom_point(color = "steelblue", alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Ryšys tarp produktyvumo lygio ir egzamino rezultato",
+    x = "Produktyvumo lygis",
+    y = "Egzamino rezultatas"
+  ) +
+  theme_minimal()
+
+# Sklaidos diagrama 3 - ryšys tarp perdegimo lygio ir egzamino rezultato
+ggplot(duomenys, aes(x = burnout_level, y = exam_score)) +
+  geom_point(color = "steelblue", alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Ryšys tarp perdegimo lygio ir egzamino rezultato",
+    x = "Perdegimo lygis",
+    y = "Egzamino rezultatas"
+  ) +
+  theme_minimal()
+
+# Sklaidos diagrama 4 - ryšys tarp koncentracijos indekso ir egzamino rezultato
+ggplot(duomenys, aes(x = focus_index, y = exam_score)) +
+  geom_point(color = "steelblue", alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "red") +
+  labs(
+    title = "Ryšys tarp koncentracijos indekso ir egzamino rezultato",
+    x = "Koncnetracijos indeksas",
+    y = "Egzamino rezultatas"
+  ) +
+  theme_minimal()
+```
+
+```{r, warning=FALSE, message=FALSE}
+# Duomenų pertvarkymas grafikams
+duomenys$part_time_job <- factor(duomenys$part_time_job,
+                                 levels = c(0, 1),
+                                 labels = c("Ne", "Taip"))
+duomenys$upcoming_deadline <- factor(duomenys$upcoming_deadline,
+                                 levels = c(0, 1),
+                                 labels = c("Ne", "Taip"))
+```
+
+```{r, warning=FALSE, message=FALSE}
+# Boxplot 1 - perdegimo lygis pagal artėjančius atsiskaitymus
+ggplot(duomenys, aes(x = upcoming_deadline, y = burnout_level, fill = upcoming_deadline)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(
+    title = "Perdegimo lygis pagal artėjančius atsiskaitymus",
+    x = "Ar artėja atsiskaitymas",
+    y = "Perdegimo lygis",
+    fill = "Atsiskaitymas"
+  ) +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2")
+
+# Boxplot 2 - perdegimo lygis pagal tai ar studentas turi darbą
+ggplot(duomenys, aes(x = part_time_job, y = burnout_level, fill = part_time_job)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(
+    title = "Perdegimo lygis pagal studento darbą",
+    x = "Ar turi darbą?",
+    y = "Perdegimo lygis",
+    fill = "Darbas"
+  ) +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set2")
+```
+
+## 3. Apskaičiuokite pagrindines skaitines charakteristikas kiekybiniams kintamiesiems.
+
+```{r}
+kiekybiniai <- c(2, 5:13, 17:21)
+funkcijos <- list(
+  Vidurkis    = ~mean(.x, na.rm = TRUE),
+  Min         = ~min(.x, na.rm = TRUE),
+  Max         = ~max(.x, na.rm = TRUE),
+  Dispersija  = ~var(.x, na.rm = TRUE),
+  StNuokrypis = ~sd(.x, na.rm = TRUE),
+  Q1          = ~quantile(.x, 0.25, na.rm = TRUE),
+  Q2          = ~median(.x, na.rm = TRUE),
+  Q3          = ~quantile(.x, 0.75, na.rm = TRUE),
+  IQR         = ~IQR(.x, na.rm = TRUE),
+  Asimetrija  = ~skewness(.x, na.rm = TRUE),
+  Eksecesas   = ~kurtosis(.x, na.rm = TRUE)
+)
+
+ch <- duomenys %>%
+  dplyr::select(all_of(c(2, 5:13, 17:21))) %>%
+  summarise(across(everything(), funkcijos)) %>%
+  pivot_longer(everything(),
+               names_to = c("Kintamasis", "Charakteristika"),
+               names_sep = "_(?=[^_]+$)") %>%
+  pivot_wider(names_from = Charakteristika, values_from = value)
+
+print(ch)
+```
+
+## 4. Sudarykite dažnių lenteles kategoriniams kintamiesiems.
+
+```{r}
+kategoriniai <- c(3:4, 14:16)
+
+for (kol in kategoriniai) {
+  pav <- colnames(duomenys)[kol]
+  cat("\n", pav, "\n")
+  
+  lentele <- duomenys %>%
+    count(.data[[pav]]) %>%
+    rename(Kategorija = 1, Daznis = n) %>%
+    mutate(Procentai = round(Daznis / sum(Daznis) * 100, 2))
+  
+  print(lentele)
+}
+```
+
+## 5. Suformuluokite tyrimo hipotezes.
+
+### H1. Pakankamas miegas (\>=7h) gerina egzamino rezultatus (dviejų imčių t-testas).
+
+H0: Studentų miegančių \>=7 ir \<7 valandas egzamino rezultatai vidutiniškai nesiskiria.
+
+H1: Studentų, miegančių \>=7 valandas egzamino rezultatai vidutiniškai yra aukštesni nei \<7 valandas miegančių studentų.
+
+### H2. Ar fiziškai aktyvių studentų koncentracijos indeksas skiriasi nuo bendro koncentracijos indekso vidurkio (vienos imties t-testas).
+
+H0: Fiziškai aktyvių studentų (exercise_minutes \> 60) koncentracijos indeksas nesiskiria nuo bendro koncnetracijos indekso vidurkio.
+
+H1: Fiziškai aktyvių studentų (exercise_minutes \>60) koncentracijos indeksas skiriasi nuo bendro koncentracijos indekso vidurkio.
+
+### H3. Ar mokymosi intensyvumas veikia perdegimo lygio nevienodumą (dviejų imčių dispersijos testas).
+
+H0: Perdegimo lygio dispersijos tarp skirtingo mokymosi intensyvumo grupių yra lygios.
+
+H1: Dispersijos skiriasi.
+
+### H4. Ar studentai praleidžia daugiau laiko prie ekrano (screen_time_hours), nei skiria laiko mokymuisi (study_hours)? (porinis t-testas)
+
+H0: Vidutinis ekrano laikas ir vidutinis mokymosi laikas nesiskiria (screen_time_hours = study_hours).
+
+H1: Studentai vidutiniškai praleidžia daugiau laiko prie ekrano nei mokosi (screen_time_hours \> study_hours).
+
+### H5. Ar mokymasis daugiau valandų susijęs su geresniu egzamino rezultatu (Pearson koreliacijos testas).
+
+H0: Tarp study_hours ir exam_score nėra tiesinės koreliacijos.
+
+H1: Tarp study_hours ir exam_score yra teigiama tiesinė koreliacija.
+
+### H6. Ar studentų besimokančių daugiau nei 5 valandas per dieną, dalis yra lygi 50% (vienos imties proporcijų testas).
+
+H0: Studentų, besimokančių daugiau nei 5 valandas (study_hours\>5) per dieną, dalis yra lygi 50%.
+
+H1: Studentų, besimokančių daugiau nei 5 valandas (study_hours\>5) per dieną, dalis nelygi 50%.
+
+### H7. Ar artėjančio atsiskaitymo (upcoming_deadline) grupėse skiriasi aukšto produktyvumo pasiekimo proporcija (dviejų imčių proporcijų
+
+H0: Aukšto produktyvumo pasiekimo proporcija nesiskiria tarp studentų, kuriems artėja atsiskaitymas, ir tų, kuriems neartėja.
+
+H1: Aukšto produktyvumo pasikimas skiriasi tarp šių dviejų grupių.
+
+## 6. Užrašykite kokius testus parinkote hipotezių tikrinimui.
+
+H1 - t-testas (dviejų imčių).
+
+H2 - t-testas (vienos imties).
+
+H3 - dispersijų testas (var.test).
+
+H4 - porinis t-testas.
+
+H5 - koreliacijos testas (Pearson).
+
+H6 - vienos imties proporcijų testas.
+
+H7 - dviejų imčių proporcijų testas.
+
+### 7. Patikrinkite, ar kintamieji tenkina būtinas sąlygas testų taikymui.
+
+```{r}
+# Papildomi kintamieji hipotezėms
+duomenys <- duomenys %>%
+  mutate(
+    gerai_miega = factor(
+      ifelse(sleep_hours >= 7, ">=7h", "<7h"),
+      levels = c("<7h", ">=7h")
+    ),
+    aktyvus = factor(
+      ifelse(exercise_minutes > 60, "Aktyvus", "Neaktyvus"),
+      levels = c("Neaktyvus", "Aktyvus")
+    ),
+    mokymosi_grupe = factor(
+      ifelse(study_hours > median(study_hours, na.rm = TRUE),
+             "Daug mokosi", "Mažai mokosi"),
+      levels = c("Mažai mokosi", "Daug mokosi")
+    ),
+    auksti_rezultatai = factor(
+      ifelse(exam_score > median(exam_score, na.rm = TRUE), 1, 0),
+      levels = c(0, 1),
+      labels = c("Ne", "Taip")
+    ),
+    aukštas_produktyvumas = factor(
+      ifelse(productivity_score > median(productivity_score, na.rm = TRUE), 1, 0),
+      levels = c(0, 1),
+      labels = c("Ne(AP)", "Taip(AP)")
+  )
+)
+```
+
+```{r}
+# H1
+# Reikalinga, kad turimi duomenys būtų pasiskirtę normaliuoju skirstiniu
+shapiro.test(duomenys$exam_score[duomenys$gerai_miega == ">=7h"])
+shapiro.test(duomenys$exam_score[duomenys$gerai_miega == "<7h"])
+
+table(duomenys$gerai_miega)
+```
+
+Kadangi abejais atvejais p-value\<0.05 - Shapiro testas teigia, kad duomenys nėra normalūs. Tačiau n \> 50 dėl to t-testą vis tiek galima naudoti papildomai netransformuojant.
+
+```{r}
+# H2
+# Reikalinga, kad turimi duomenys būtų pasiskirtę normaliuoju skirstiniu
+shapiro.test(duomenys$focus_index[duomenys$aktyvus == "Aktyvus"])
+
+table(duomenys$aktyvus)
+```
+
+Kadangi p-value\>0.05 - turimi duomenys yra pasiskirstę normaliuoju skirstiniu ir yra tinkami atlikti H2 testą.
+
+```{r}
+# H3
+# Reikalinga, kad turimi duomenys būtų pasiskirtę normaliuoju skirstiniu
+by(duomenys$burnout_level, duomenys$mokymosi_grupe, shapiro.test)
+```
+
+Kadangi p-value\>0.05 - naudojami duomenys pasiskirstę normaliuoju skirstiniu ir yra tinkami dispersijų testui taikyti.
+
+```{r}
+# H4 – sąlygų tikrinimas (porinis t-testas)
+skirtumai <- duomenys$screen_time_hours - duomenys$study_hours
+shapiro.test(skirtumai)
+
+length(skirtumai[!is.na(skirtumai)])
+```
+
+Kadangi p-value\<0.05 – Shapiro testas teigia, kad skirtumai nėra pasiskirstę normaliai. Tačiau n=5000\>50, todėl porinis t-testas vis tiek gali būti taikomas.
+
+```{r}
+# H5 – Pearson koreliacija
+shapiro.test(duomenys$study_hours)
+shapiro.test(duomenys$exam_score)
+
+sum(!is.na(duomenys$study_hours) & !is.na(duomenys$exam_score))
+```
+
+Kadangi p-value\<0.05, tai abejais atvejais kintamųjų skirstiniai nėra normalieji, bet n\>50, tai duomenys tinkami atlikti koreliacijos testą.
+
+```{r}
+# H6 - vienos imties proporcijos testas
+n_viso <- sum(!is.na(duomenys$study_hours))
+n_daugiau5 <- sum(duomenys$study_hours > 5, na.rm = TRUE)
+
+cat("n * p =", n_viso * 0.5, "\n")
+cat("n * (1-p) =", n_viso * 0.5, "\n")
+```
+
+np=2500\>=5 ir n(1-p)=2500\>=5 todėl galima naudoti vienos imties proporcijų testą.
+
+```{r}
+#H7 duomenų persitvarkymas
+
+```
+
+```{r}
+# H7 – proporcijų testas (miegas ir aukštas rezultatas)
+table(duomenys$upcoming_deadline, duomenys$aukštas_produktyvumas)
+prop.table(table(duomenys$upcoming_deadline, duomenys$aukštas_produktyvumas))
+```
+
+Kadangi kiekvienoje grupėje n\>5 ir proporcijos skiriasi, tai duomenys yra tinkami atlikti proporcijų testą.
+
+### 8. Atlikite statistinį tyrimą savo suformuluotoms hipotezėms.
+
+```{r}
+# H1 - dviejų imčių t-testas
+levels(duomenys$gerai_miega)
+var.test(exam_score ~ gerai_miega, data = duomenys)
+t.test(exam_score ~ gerai_miega, data = duomenys, var.equal = FALSE, alternative = "less")
+```
+
+H0: atmetama (p-value \< 0.05). Studentai, miegantys \>=7 valandas, turi statistiškai reikšmingai aukštesnius egzamino rezultatus (22.45) nei miegantys \<7 valandas (18.54).
+
+```{r}
+# H2 - vienos imties t-testas
+levels(duomenys$aktyvus)
+t.test(duomenys$focus_index[duomenys$aktyvus == "Aktyvus"], mu = mean(duomenys$focus_index, na.rm = TRUE), alternative = "two.sided")
+```
+
+H0: neatmetama (p-value \> 0.05). Fiziškai aktyvių studentų koncentracijos indekso vidurkis (29.39) statistiškai reikšmingai nesiskiria nuo bendro populiacijos vidrurkio (29.43).
+
+```{r}
+# H3 – dispersijų testas
+var.test(burnout_level ~ mokymosi_grupe, data = duomenys, alternative = "two.sided")
+```
+
+H0: neatmetama (p-value \> 0.05). Perdegimo lygio dispersijos tarp skirtingo mokymosi intensyvumo grupių statistiškai reikšmingai nesiskiria.
+
+```{r}
+#H4 - porinis t-testas
+t.test(duomenys$screen_time_hours, duomenys$study_hours, 
+       paired = TRUE, 
+       alternative = "greater")
+```
+
+H0: atmetama. Studentai vidutiniškai praleidžia statistiškai reikšmingai daugiau laiko prie ekrano (screen_time_hours) nei mokosi (study_hours). Vidutinis skirtumas yra 2.44 valandos – tiek daugiau laiko skiriama ekranui nei mokymuisi per dieną.
+
+```{r}
+# H5 – Pearson koreliacija
+cor.test(duomenys$study_hours, duomenys$exam_score, method = "pearson", 
+         alternative = "greater")
+```
+
+H0: atmetama (p-value \< 0.05). Tarp mokymosi valandų ir egzamino rezultato yra statistiškai reikšminga teigiama koreliacija (r=0.46). Tai reiškia, kad didėjant mokymosi valandų skaičiui, egzamino rezultatai taip pat didėja.
+
+```{r, warning=FALSE}
+# H6 – Vienos imties proporcijų testas (study_hours > 5)
+n_viso <- sum(!is.na(duomenys$study_hours))
+n_daugiau5 <- sum(duomenys$study_hours > 5, na.rm = TRUE)
+
+prop.test(n_daugiau5, n_viso, p = 0.5, alternative = "two.sided")
+```
+
+H0: atmetama (p-value \< 0.05). Studentų, besimokančių ilgiau nei 5 valandos per dieną, dalis yra 40.2%, kas statistiškai reikšmingai skiriasi nuo 50%. Tai reiškia, kad dauguma studentų mokosi 5 ir mažiau valandų per dieną.
+
+```{r}
+# H7
+prop.test(table(duomenys$upcoming_deadline, duomenys$aukštas_produktyvumas),
+          alternative = "two.sided")
+```
+
+H0: atmetama (p-value \< 0.05). Aukšto produktyvumo pasiekimo proporcija statistiškai reikšmingai skiriasi tarp grupių. Studentų, kuriems artėja atsiskaitymas, aukšto produktyvumo proporcija yra 45.8%, o studentų, kuriems neartėja atsiskaitymas – 54.3%. Tai reiškia, kad artėjantis atsiskaitymas yra susijęs su mažesniu produktyvumu.
+
+### 9. Pateikite tyrimo atsakymą.
+
+#### Hipotezė 1:
+
+Atmetama nulinė hipotezė. Egzamino rezultatai statistiškai reikšmingai skiriasi tarp grupių. Studentai, kurie miega \>=7 valandas, turi aukštesnius egzamino rezultatus (22.45) nei tie, kurie miega \<7 valandas (18.54). Tai patvirtina, kad pakankamas miegas teigiamai veikia egzamino rezultatus.
+
+#### Hipotezė 2:
+
+Nulinė hipotezė neatmetama. Fiziškai aktyvių studentų koncentracijos indekso vidurkis (29.39) statistiškai reikšmingai nesiskiria nuo bendro populiacijos vidrurkio (29.43). Fizinis aktyvumas neturi reikšmingo poveikio koncentracijos indeksui.
+
+#### Hipotezė 3:
+
+Nulinė hipotezė neatmetama. Perdegimo lygio dispersijos tarp skirtingo mokymosi intensyvumo grupių statistiškai reikšmingai nesiskiria. Mokymosi intensyvumas neturi reikšmingo poveikio perdegimo lygio nevienodumui.
+
+#### Hipotezė 4:
+
+Nulinė hipotezė atmetama. Studentai vidutiniškai praleidžia statistiškai reikšmingai daugiau laiko prie ekrano (screen_time_hours) nei mokosi (study_hours). Vidutinis skirtumas yra 2.44 valandos - tiek daugiau laiko skiriama ekranui nei mokymuisi per dieną.
+
+#### Hipotezė 5:
+
+Atmetama nulinė hipotezė. Tarp mokymosi valandų ir egzamino rezultato yra statistiškai reikšminga teigiama koreliacija (r=0.46). Tai reiškia, kad didėjant mokymosi valandų skaičiui, egzamino rezultatai taip pat didėja.
+
+#### Hipotezė 6:
+
+Atmetama nulinė hipotezė. Studentų, besimokančių daugiau nei 5 valandas per dieną, dalis yra 40.2%, kas statistiškai reikšmingai skiriasi nuo 50%. Tai reiškia, kad dauguma studentų mokosi 5 arba mažiau valandų per dieną.
+
+#### Hipotezė 7:
+
+Atmetama nulinė hipotezė. Aukšto produktyvumo pasiekimo proporcija statistiškai reikšmingai skiriasi tarp grupių. Studentų, kuriems artėja atsiskaitymas, aukšto produktyvumo proporcija yra 45.8%, o studentų, kuriems neartėja atsiskaitymas – 54.3%. Tai reiškia, kad artėjantis atsiskaitymas yra susijęs su mažesniu produktyvumu.
+
+#### Bendra išvada:
+
+Tyrimas rodo, kad miego trukmė ir mokymosi valandų skaičius yra stipriausi teigiami akademinių rezulltatų veiksniai. Dauguma studentų mokosi 5 arba mažiau valandų per dieną ir vidutiniškai daugiau laiko praleidžia prie ekrano nei mokydamiesi. Artėjantis atsiskaitymas (deadline) susijęs su mažesniu produktyvumu, o fizinis aktyvumas ir mokymosi intensyvumas reikšmingo poveikio tirtiems kintamiesiems neturėjo.
